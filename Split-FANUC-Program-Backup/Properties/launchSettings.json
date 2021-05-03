@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Split-FANUC-Program-Backup": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\temp\\ALL-PROG.TXT\""
+    }
+  }
+}

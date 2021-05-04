@@ -23,7 +23,8 @@ namespace Split_FANUC_Program_Backup
 
         private const string cncProgramFileExtension = ".CNC";
         private const string defaultCNCprogramName = "Uknown.CNC";
-        private const char percent = '%';
+        private const char programDelimiter = '%';
+        private const int minimumProgramSize = 7;
 
         /// <summary>
         /// The left side of the OR (|) describes an "O Number", the original CNC program name structure, consisting of an "O" followed by 4 to 8 numbers
@@ -60,9 +61,17 @@ namespace Split_FANUC_Program_Backup
 
             // Make a subfolder named like the filename to hold all the programs we split out of it
             string outputFolder = Path.Combine(backupFile.DirectoryName, Path.GetFileNameWithoutExtension(backupFile.Name));
-            Directory.CreateDirectory(outputFolder);
+            try
+            {
+                Directory.CreateDirectory(outputFolder);
+            } catch 
+            {  // Fail gracefully
+                outputFolder = backupFile.DirectoryName;
+            }
 
             SplitALLPROGtxt(backupFile, outputFolder);
+
+            // Success
             return 0;
         }
 
@@ -74,14 +83,18 @@ namespace Split_FANUC_Program_Backup
         {
             foreach (string cncProgramText in GetCNCProgams(backupFile.FullName))
             {
-                if (cncProgramText.Length > 7)
-                {
-                    string programFileName = GetProgramNameFromHeader(cncProgramText);
-                    if (programFileName.Length < 1) { programFileName = defaultCNCprogramName; }
+                string programFileName = GetProgramNameFromHeader(cncProgramText);
+                if (programFileName.Length < 1) { programFileName = defaultCNCprogramName; }
 
-                    string outputFilename = Path.Combine(outputFolder, programFileName + cncProgramFileExtension);
+                string outputFilename = Path.Combine(outputFolder, programFileName + cncProgramFileExtension);
+                try
+                {
                     File.WriteAllTextAsync(outputFilename, cncProgramText);
                     Console.WriteLine("CREATED FILE: " + outputFilename);
+                } catch (Exception err)
+                {
+                    Console.WriteLine("ERROR " + err.HResult + ": " + err.Message);
+                    Console.WriteLine("FAILED TO CREATE FILE: " + outputFilename);
                 }
             }
         }
@@ -92,8 +105,7 @@ namespace Split_FANUC_Program_Backup
         /// <param name="cncProgramText">The full text of a CNC program</param>
         /// <returns>The program name from the header</returns>
         private static string GetProgramNameFromHeader(string cncProgramText)
-        {
-            /// Searches for O#### formatted program names
+        {       
             return Regex.Match(cncProgramText, oNumberPattern, RegexOptions.Multiline).Value;
         }
 
@@ -106,12 +118,12 @@ namespace Split_FANUC_Program_Backup
         {
             StringBuilder content = new();
 
-            /// Searches for CNC programs between O numbers symbols
+            /// Searches for CNC programs between program name symbols
             foreach(string line in File.ReadLines(fileName))
             {
                 if (Regex.IsMatch(line, oNumberPattern))
                 { 
-                    if (content.Length > 4)
+                    if (content.Length > minimumProgramSize)
                     {   // Return the file we have in the buffer
                         yield return CncProgramText(content);
                     }
@@ -131,10 +143,13 @@ namespace Split_FANUC_Program_Backup
         {
             // Add % to the top 
             content.Insert(0, Environment.NewLine);
-            content.Insert(0, percent);
+            content.Insert(0, programDelimiter);
 
             // Add % to the bottom when missing
-            if (content[^3] != percent) { content.AppendLine(percent.ToString()); }
+#pragma warning disable S1854 // Unused assignments should be removed
+            int lastCharIndex = Environment.NewLine.Length + 1;
+#pragma warning restore S1854 // Unused assignments should be removed
+            if (content[^lastCharIndex] != programDelimiter) { content.AppendLine(programDelimiter.ToString()); }
 
             return content.ToString();
         }

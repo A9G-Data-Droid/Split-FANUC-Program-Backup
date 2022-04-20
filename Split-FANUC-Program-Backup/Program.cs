@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Split_FANUC_Program_Backup
 {
@@ -22,7 +23,7 @@ namespace Split_FANUC_Program_Backup
         }
 
         private const string cncProgramFileExtension = ".CNC";
-        private const string defaultCNCprogramName = "Uknown.CNC";
+        private const string defaultCNCprogramName = "Unknown";
         private const char programDelimiter = '%';
         private const int minimumProgramSize = 7;
 
@@ -32,7 +33,12 @@ namespace Split_FANUC_Program_Backup
         /// </summary>
         private const string oNumberPattern = @"^(O\d{4,8}|<\w+.c?nc>)";
 
-        static int Main(string[] args)
+        /// <summary>
+        /// Matches subdirectory flags dispersed throughout the backup file.
+        /// </summary>
+        private const string directoryFlag = @"(&F=)";
+
+        static async Task<int> Main(string[] args)
         {
             DisplayHeader();
 
@@ -69,27 +75,28 @@ namespace Split_FANUC_Program_Backup
                 outputFolder = backupFile.DirectoryName;
             }
 
-            SplitALLPROGtxt(backupFile, outputFolder);
+            await SplitALLPROGtxt(backupFile, outputFolder);
 
             // Success
             return 0;
         }
 
         /// <summary>
-        /// Split cnc programs found in the text file and save them as individual files
+        /// Split cnc programs found in the text file and save them as individual files. 
+        /// File subdirectories reflect those on the source CNC controller. 
         /// </summary>
         /// <param name="fileName">Full path to "ALL-PROG.TXT"</param>
-        private static void SplitALLPROGtxt(FileInfo backupFile, string outputFolder)
+        private static async Task SplitALLPROGtxt(FileInfo backupFile, string outputFolder)
         {
-            foreach (string cncProgramText in GetCNCProgams(backupFile.FullName))
+            foreach (var cncProgramText in GetCNCProgams(backupFile.FullName, outputFolder))
             {
-                string programFileName = GetProgramNameFromHeader(cncProgramText);
+                string programFileName = GetProgramNameFromHeader(cncProgramText.FullProg);
                 if (programFileName.Length < 1) { programFileName = defaultCNCprogramName; }
 
-                string outputFilename = Path.Combine(outputFolder, programFileName + cncProgramFileExtension);
+                string outputFilename = Path.Combine(outputFolder + cncProgramText.SubFolder, programFileName + cncProgramFileExtension);
                 try
                 {
-                    File.WriteAllTextAsync(outputFilename, cncProgramText);
+                    await File.WriteAllTextAsync(outputFilename, cncProgramText.FullProg);
                     Console.WriteLine("CREATED FILE: " + outputFilename);
                 } catch (Exception err)
                 {
@@ -110,22 +117,41 @@ namespace Split_FANUC_Program_Backup
         }
 
         /// <summary>
-        /// Reads a text file and attempts to split out CNC programs found within
+        /// Reads a text file and attempts to split out CNC programs found within, 
+        /// while capturing each program's subdirectory as in the source CNC controller.
         /// </summary>
         /// <param name="fileName">Full path to "ALL-PROG.TXT"</param>
-        /// <returns>Each string is a whole CNC program</returns>
-        static IEnumerable<string> GetCNCProgams(string fileName)
+        /// <returns>Each CNC program as a string, and any associated subdirectory</returns>
+        static IEnumerable<(string SubFolder, string FullProg)> GetCNCProgams(string fileName, string outputFolder)
         {
             StringBuilder content = new();
+            string subFolder = "";
 
             /// Searches for CNC programs between program name symbols
             foreach(string line in File.ReadLines(fileName))
             {
+                // Checks for subdirectory notation
+                if (Regex.IsMatch(line, directoryFlag))
+                {
+                    if (content.Length > minimumProgramSize)
+                    {
+                        // Return file in buffer, as new subdirectory only applies to subsequent programs
+                        yield return (subFolder, CncProgramText(content));
+                        content = new();
+                    }
+                    // Set and create new subdirectory for subsequent programs, minus notation
+                    subFolder = @"\" + line.Remove(0, 3).Trim().Trim('/').Replace('/', '\\') + @"\";
+                    Directory.CreateDirectory(outputFolder + subFolder);
+
+                    // Don't append notation to next program
+                    continue;
+                }
+
                 if (Regex.IsMatch(line, oNumberPattern))
-                { 
+                {                     
                     if (content.Length > minimumProgramSize)
                     {   // Return the file we have in the buffer
-                        yield return CncProgramText(content);
+                        yield return (subFolder, CncProgramText(content));
                     }
 
                     // Start a new file
@@ -136,20 +162,26 @@ namespace Split_FANUC_Program_Backup
             }
 
             // Once we reach the end we will have the final program in the buffer.
-            yield return CncProgramText(content);
+            yield return (subFolder, CncProgramText(content));
         }
 
         static string CncProgramText(StringBuilder content)
         {
+            // Prevent IndexOutOfBounds exceptions if final program is empty
+            if (content.Length < minimumProgramSize)
+            {
+                return content.ToString();
+            }
+
             // Add % to the top 
-            content.Insert(0, Environment.NewLine);
-            content.Insert(0, programDelimiter);
+            if (content.ToString()[0] != programDelimiter)
+            {
+                content.Insert(0, Environment.NewLine);
+                content.Insert(0, programDelimiter);
+            }
 
             // Add % to the bottom when missing
-#pragma warning disable S1854 // Unused assignments should be removed
-            int lastCharIndex = Environment.NewLine.Length + 1;
-#pragma warning restore S1854 // Unused assignments should be removed
-            if (content[^lastCharIndex] != programDelimiter) { content.AppendLine(programDelimiter.ToString()); }
+            if (content.ToString().TrimEnd()[^1] != programDelimiter) { content.AppendLine(programDelimiter.ToString()); }
 
             return content.ToString();
         }

@@ -12,14 +12,22 @@ namespace SplitFANUCProgramBackup
     {
         private static string ThisExecutableName => AppDomain.CurrentDomain.FriendlyName;
         private static Version? AssemblyVersion => Assembly.GetExecutingAssembly().GetName().Version;
-        private static string VersionNumber => AssemblyVersion?.ToString() ?? String.Empty;
+        private static string VersionNumber => AssemblyVersion?.ToString() ?? string.Empty;
         private static string BuildDate
         {
             get {
+                DateTime buildDateTime;
                 Version? version = AssemblyVersion;
-                return new DateTime(2000, 1, 1)
-                    .AddDays(version.Build)
-                    .AddSeconds(version.Revision * 2).ToString("o");
+                if (version == null)
+                {
+                    buildDateTime = File.GetLastWriteTime(AppContext.BaseDirectory);
+                }
+                else
+                {
+                    buildDateTime = new DateTime(2000, 1, 1).AddDays(version.Build).AddSeconds(version.Revision * 2);
+                }
+ 
+                return buildDateTime.ToString("o");
             }
         }
 
@@ -67,7 +75,7 @@ namespace SplitFANUCProgramBackup
             }
 
             // Make a subfolder named like the filename to hold all the programs we split out of it
-            string outputFolder = Path.Combine(backupFile.DirectoryName ?? String.Empty, Path.GetFileNameWithoutExtension(backupFile.Name));
+            string outputFolder = Path.Combine(backupFile.DirectoryName ?? string.Empty, Path.GetFileNameWithoutExtension(backupFile.Name));
             try
             {
                 Directory.CreateDirectory(outputFolder);
@@ -170,20 +178,21 @@ namespace SplitFANUCProgramBackup
         static string CncProgramText(StringBuilder content)
         {
             // Prevent IndexOutOfBounds exceptions if final program is empty
-            if (content.Length < minimumProgramSize)
+            if (content.Length > minimumProgramSize)
             {
-                return content.ToString();
-            }
+                // Add % to the top 
+                if (content.ToString()[0] != programDelimiter)
+                {
+                    content.Insert(0, Environment.NewLine);
+                    content.Insert(0, programDelimiter);
+                }
 
-            // Add % to the top 
-            if (content.ToString()[0] != programDelimiter)
-            {
-                content.Insert(0, Environment.NewLine);
-                content.Insert(0, programDelimiter);
+                // Add % to the bottom when missing
+                if (content.ToString().TrimEnd()[^1] != programDelimiter)
+                {
+                    content.AppendLine(programDelimiter.ToString());
+                }
             }
-
-            // Add % to the bottom when missing
-            if (content.ToString().TrimEnd()[^1] != programDelimiter) { content.AppendLine(programDelimiter.ToString()); }
 
             return content.ToString();
         }

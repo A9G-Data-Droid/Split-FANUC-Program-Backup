@@ -6,16 +6,17 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace Split_FANUC_Program_Backup
+namespace SplitFANUCProgramBackup
 {
     static class Program
     {
         private static string ThisExecutableName => AppDomain.CurrentDomain.FriendlyName;
-        private static string VersionNumber => Assembly.GetExecutingAssembly().GetName().Version.ToString();
+        private static Version? AssemblyVersion => Assembly.GetExecutingAssembly().GetName().Version;
+        private static string VersionNumber => AssemblyVersion?.ToString() ?? String.Empty;
         private static string BuildDate
         {
             get {
-                Version version = Assembly.GetExecutingAssembly().GetName().Version;
+                Version? version = AssemblyVersion;
                 return new DateTime(2000, 1, 1)
                     .AddDays(version.Build)
                     .AddSeconds(version.Revision * 2).ToString("o");
@@ -66,13 +67,13 @@ namespace Split_FANUC_Program_Backup
             }
 
             // Make a subfolder named like the filename to hold all the programs we split out of it
-            string outputFolder = Path.Combine(backupFile.DirectoryName, Path.GetFileNameWithoutExtension(backupFile.Name));
+            string outputFolder = Path.Combine(backupFile.DirectoryName ?? String.Empty, Path.GetFileNameWithoutExtension(backupFile.Name));
             try
             {
                 Directory.CreateDirectory(outputFolder);
             } catch 
             {  // Fail gracefully
-                outputFolder = backupFile.DirectoryName;
+                outputFolder = backupFile.DirectoryName ?? ".\\";
             }
 
             await SplitALLPROGtxt(backupFile, outputFolder);
@@ -88,15 +89,15 @@ namespace Split_FANUC_Program_Backup
         /// <param name="fileName">Full path to "ALL-PROG.TXT"</param>
         private static async Task SplitALLPROGtxt(FileInfo backupFile, string outputFolder)
         {
-            foreach (var cncProgramText in GetCNCProgams(backupFile.FullName, outputFolder))
+            foreach (var (subFolder, programText) in GetCNCProgams(backupFile.FullName, outputFolder))
             {
-                string programFileName = GetProgramNameFromHeader(cncProgramText.FullProg);
+                string programFileName = GetProgramNameFromHeader(programText);
                 if (programFileName.Length < 1) { programFileName = defaultCNCprogramName; }
 
-                string outputFilename = Path.Combine(outputFolder + cncProgramText.SubFolder, programFileName + cncProgramFileExtension);
+                string outputFilename = Path.Combine(outputFolder, subFolder, programFileName + cncProgramFileExtension);
                 try
                 {
-                    await File.WriteAllTextAsync(outputFilename, cncProgramText.FullProg);
+                    await File.WriteAllTextAsync(outputFilename, programText);
                     Console.WriteLine("CREATED FILE: " + outputFilename);
                 } catch (Exception err)
                 {
@@ -122,7 +123,7 @@ namespace Split_FANUC_Program_Backup
         /// </summary>
         /// <param name="fileName">Full path to "ALL-PROG.TXT"</param>
         /// <returns>Each CNC program as a string, and any associated subdirectory</returns>
-        static IEnumerable<(string SubFolder, string FullProg)> GetCNCProgams(string fileName, string outputFolder)
+        static IEnumerable<(string SubFolder, string ProgramText)> GetCNCProgams(string fileName, string outputFolder)
         {
             StringBuilder content = new();
             string subFolder = "";
@@ -139,9 +140,10 @@ namespace Split_FANUC_Program_Backup
                         yield return (subFolder, CncProgramText(content));
                         content = new();
                     }
-                    // Set and create new subdirectory for subsequent programs, minus notation
-                    subFolder = @"\" + line.Remove(0, 3).Trim().Trim('/').Replace('/', '\\') + @"\";
-                    Directory.CreateDirectory(outputFolder + subFolder);
+
+                    // Strip out the directory flag and slashes to get just the folder name.
+                    subFolder = Regex.Replace(line, directoryFlag, string.Empty).Trim('/');
+                    Directory.CreateDirectory(Path.Combine(outputFolder, subFolder));
 
                     // Don't append notation to next program
                     continue;

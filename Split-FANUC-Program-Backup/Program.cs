@@ -26,7 +26,7 @@ namespace SplitFANUCProgramBackup
                 {
                     buildDateTime = new DateTime(2000, 1, 1).AddDays(version.Build).AddSeconds(version.Revision * 2);
                 }
- 
+
                 return buildDateTime.ToString("o");
             }
         }
@@ -34,6 +34,7 @@ namespace SplitFANUCProgramBackup
         private const string cncProgramFileExtension = ".CNC";
         private const string defaultCNCprogramName = "Unknown";
         private const char programDelimiter = '%';
+        private static readonly char[] subFolderTrim = { ' ', '/' };
         private const int minimumProgramSize = 7;
 
         /// <summary>
@@ -150,7 +151,7 @@ namespace SplitFANUCProgramBackup
                     }
 
                     // Strip out the directory flag and slashes to get just the folder name.
-                    subFolder = Regex.Replace(line, directoryFlag, string.Empty).Trim('/');
+                    subFolder = Regex.Replace(line, directoryFlag, string.Empty).Trim(subFolderTrim);
                     Directory.CreateDirectory(Path.Combine(outputFolder, subFolder));
 
                     // Don't append notation to next program

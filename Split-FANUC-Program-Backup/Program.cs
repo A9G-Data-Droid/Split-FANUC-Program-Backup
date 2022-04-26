@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SplitFANUCProgramBackup
 {
-    static class Program
+    public static class Program
     {
         private static string ThisExecutableName => AppDomain.CurrentDomain.FriendlyName;
         private static Version? AssemblyVersion => Assembly.GetExecutingAssembly().GetName().Version;
@@ -26,7 +26,7 @@ namespace SplitFANUCProgramBackup
                 {
                     buildDateTime = new DateTime(2000, 1, 1).AddDays(version.Build).AddSeconds(version.Revision * 2);
                 }
- 
+
                 return buildDateTime.ToString("o");
             }
         }
@@ -34,6 +34,7 @@ namespace SplitFANUCProgramBackup
         private const string cncProgramFileExtension = ".CNC";
         private const string defaultCNCprogramName = "Unknown";
         private const char programDelimiter = '%';
+        private static readonly char[] subFolderTrim = { ' ', '/' };
         private const int minimumProgramSize = 7;
 
         /// <summary>
@@ -47,7 +48,12 @@ namespace SplitFANUCProgramBackup
         /// </summary>
         private const string directoryFlag = @"(&F=)";
 
-        static async Task<int> Main(string[] args)
+        /// <summary>
+        /// Command line entry point
+        /// </summary>
+        /// <param name="args">Requires only one argument: full path to the backup file.</param>
+        /// <returns>Zero for success</returns>
+        public static async Task<int> Main(string[] args)
         {
             DisplayHeader();
 
@@ -131,7 +137,7 @@ namespace SplitFANUCProgramBackup
         /// </summary>
         /// <param name="fileName">Full path to "ALL-PROG.TXT"</param>
         /// <returns>Each CNC program as a string, and any associated subdirectory</returns>
-        static IEnumerable<(string SubFolder, string ProgramText)> GetCNCProgams(string fileName, string outputFolder)
+        private static IEnumerable<(string SubFolder, string ProgramText)> GetCNCProgams(string fileName, string outputFolder)
         {
             StringBuilder content = new();
             string subFolder = "";
@@ -150,7 +156,7 @@ namespace SplitFANUCProgramBackup
                     }
 
                     // Strip out the directory flag and slashes to get just the folder name.
-                    subFolder = Regex.Replace(line, directoryFlag, string.Empty).Trim('/');
+                    subFolder = Regex.Replace(line, directoryFlag, string.Empty).Trim(subFolderTrim);
                     Directory.CreateDirectory(Path.Combine(outputFolder, subFolder));
 
                     // Don't append notation to next program
@@ -175,7 +181,7 @@ namespace SplitFANUCProgramBackup
             yield return (subFolder, CncProgramText(content));
         }
 
-        static string CncProgramText(StringBuilder content)
+        private static string CncProgramText(StringBuilder content)
         {
             // Prevent IndexOutOfBounds exceptions if final program is empty
             if (content.Length > minimumProgramSize)
@@ -202,7 +208,7 @@ namespace SplitFANUCProgramBackup
             Console.WriteLine("File not found: " + fileName);
         }
 
-        static void DisplayHelp()
+        private static void DisplayHelp()
         {
             Console.WriteLine(@"
 At least one argument required. Enter only the path of the file you would like to split.

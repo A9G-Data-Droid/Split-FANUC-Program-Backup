@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SplitFANUCProgramBackup
 {
-    static class Program
+    public static class Program
     {
         private static string ThisExecutableName => AppDomain.CurrentDomain.FriendlyName;
         private static Version? AssemblyVersion => Assembly.GetExecutingAssembly().GetName().Version;
@@ -48,7 +48,12 @@ namespace SplitFANUCProgramBackup
         /// </summary>
         private const string directoryFlag = @"(&F=)";
 
-        static async Task<int> Main(string[] args)
+        /// <summary>
+        /// Command line entry point
+        /// </summary>
+        /// <param name="args">Requires only one argument: full path to the backup file.</param>
+        /// <returns>Zero for success</returns>
+        public static async Task<int> Main(string[] args)
         {
             DisplayHeader();
 
@@ -132,7 +137,7 @@ namespace SplitFANUCProgramBackup
         /// </summary>
         /// <param name="fileName">Full path to "ALL-PROG.TXT"</param>
         /// <returns>Each CNC program as a string, and any associated subdirectory</returns>
-        static IEnumerable<(string SubFolder, string ProgramText)> GetCNCProgams(string fileName, string outputFolder)
+        private static IEnumerable<(string SubFolder, string ProgramText)> GetCNCProgams(string fileName, string outputFolder)
         {
             StringBuilder content = new();
             string subFolder = "";
@@ -176,7 +181,7 @@ namespace SplitFANUCProgramBackup
             yield return (subFolder, CncProgramText(content));
         }
 
-        static string CncProgramText(StringBuilder content)
+        private static string CncProgramText(StringBuilder content)
         {
             // Prevent IndexOutOfBounds exceptions if final program is empty
             if (content.Length > minimumProgramSize)
@@ -203,7 +208,7 @@ namespace SplitFANUCProgramBackup
             Console.WriteLine("File not found: " + fileName);
         }
 
-        static void DisplayHelp()
+        private static void DisplayHelp()
         {
             Console.WriteLine(@"
 At least one argument required. Enter only the path of the file you would like to split.

@@ -2,28 +2,41 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0-windows</TargetFramework>
+    <TargetFramework>net4.8</TargetFramework>
     <RootNamespace>SplitFANUCProgramBackup</RootNamespace>
     <StartupObject></StartupObject>
-    <Deterministic>False</Deterministic>
-    <AssemblyVersion>1.2.*</AssemblyVersion>
-    <Version>1.2.1</Version>
+    <Deterministic>True</Deterministic>
+    <AssemblyVersion>1.3.0</AssemblyVersion>
+    <Version>$(AssemblyVersion)</Version>
     <NeutralLanguage>en</NeutralLanguage>
     <PackageProjectUrl>https://github.com/A9G-Data-Droid/Split-FANUC-Program-Backup/</PackageProjectUrl>
-    <Nullable>enable</Nullable>
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Title>Split FANUC Program Backup</Title>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <FileVersion>$(AssemblyVersion)</FileVersion>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>false</SelfContained>
-    <PublishTrimmed>false</PublishTrimmed>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishReadyToRun>true</PublishReadyToRun>
+    <WarningLevel>7</WarningLevel>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <WarningLevel>7</WarningLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>
